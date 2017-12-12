@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/igor/university/machine-learning/cv-tricks.com/Tensorflow-tutorials/tutorial-2-image-classifier/modelsdogs-cats-model"
+all_model_checkpoint_paths: "/home/igor/university/machine-learning/cv-tricks.com/Tensorflow-tutorials/tutorial-2-image-classifier/modelsdogs-cats-model"
