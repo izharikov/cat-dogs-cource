@@ -6,6 +6,7 @@ from datetime import timedelta
 import math
 import random
 import numpy as np
+import config
 
 # Adding Seed so that random initialization is consistent
 from numpy.random import seed
@@ -65,7 +66,7 @@ def create_biases(size):
 def create_convolutional_layer(input,
                                num_input_channels,
                                conv_filter_size,
-                               num_filters):
+                               num_filters, name=None):
     ## We shall define the weights that will be trained using create_weights function.
     weights = create_weights(shape=[conv_filter_size, conv_filter_size, num_input_channels, num_filters])
     ## We create biases using the create_biases function. These are also trained.
@@ -75,7 +76,8 @@ def create_convolutional_layer(input,
     layer = tf.nn.conv2d(input=input,
                          filter=weights,
                          strides=[1, 1, 1, 1],
-                         padding='SAME')
+                         padding='SAME',
+                         name=name)
 
     layer += biases
 
@@ -107,7 +109,8 @@ def create_flatten_layer(layer):
 def create_fc_layer(input,
                     num_inputs,
                     num_outputs,
-                    use_relu=True):
+                    use_relu=True,
+                    name=None):
     # Let's define trainable weights and biases.
     weights = create_weights(shape=[num_inputs, num_outputs])
     biases = create_biases(num_outputs)
@@ -115,7 +118,7 @@ def create_fc_layer(input,
     # Fully connected layer takes input x and produces wx+b.Since, these are matrices, we use matmul function in Tensorflow
     layer = tf.matmul(input, weights) + biases
     if use_relu:
-        layer = tf.nn.relu(layer)
+        layer = tf.nn.relu(layer, name=name)
 
     return layer
 
@@ -123,28 +126,42 @@ def create_fc_layer(input,
 layer_conv1 = create_convolutional_layer(input=x,
                                          num_input_channels=num_channels,
                                          conv_filter_size=filter_size_conv1,
-                                         num_filters=num_filters_conv1)
+                                         num_filters=num_filters_conv1,
+                                         name=str.format("1st_Conv_{1}_of_{0}x{0}", filter_size_conv1,
+                                                         num_filters_conv1))
 layer_conv2 = create_convolutional_layer(input=layer_conv1,
                                          num_input_channels=num_filters_conv1,
                                          conv_filter_size=filter_size_conv2,
-                                         num_filters=num_filters_conv2)
+                                         num_filters=num_filters_conv2,
+                                         name=str.format("2nd_Conv_{1}_of_{0}x{0}", filter_size_conv2,
+                                                         num_filters_conv2))
 
 layer_conv3 = create_convolutional_layer(input=layer_conv2,
                                          num_input_channels=num_filters_conv2,
                                          conv_filter_size=filter_size_conv3,
-                                         num_filters=num_filters_conv3)
+                                         num_filters=num_filters_conv3,
+                                         name=str.format("3rd_Conv_{1}_of_{0}x{0}", filter_size_conv3,
+                                                         num_filters_conv3)
+                                         )
 
 layer_flat = create_flatten_layer(layer_conv3)
 
 layer_fc1 = create_fc_layer(input=layer_flat,
                             num_inputs=layer_flat.get_shape()[1:4].num_elements(),
                             num_outputs=fc_layer_size,
-                            use_relu=True)
+                            use_relu=True,
+                            name=str.format("FC_layer_of_input_{0}_output_{1}_ReLU_{2}"
+                                            , layer_flat.get_shape()[1:4].num_elements(),
+                                            fc_layer_size, True))
 
 layer_fc2 = create_fc_layer(input=layer_fc1,
                             num_inputs=fc_layer_size,
                             num_outputs=num_classes,
-                            use_relu=False)
+                            use_relu=False,
+                            name=str.format("FC_layer_of_input_{0}_output_{1}_ReLU_{2}"
+                                            , fc_layer_size,
+                                            num_classes, False)
+                            )
 
 y_pred = tf.nn.softmax(layer_fc2, name='y_pred')
 
@@ -178,6 +195,12 @@ def show_progress(epoch, feed_dict_train, feed_dict_validate, val_loss):
 total_iterations = 0
 
 saver = tf.train.Saver()
+train_writer = tf.summary.FileWriter(config.train,
+                                     session.graph)
+tf.summary.scalar('cost', cost)
+tf.summary.scalar('accuracy', accuracy)
+
+merged = tf.summary.merge_all()
 
 
 def train(num_iteration):
@@ -195,14 +218,15 @@ def train(num_iteration):
                          y_true: y_valid_batch}
 
         session.run(optimizer, feed_dict=feed_dict_tr)
-
+        #  train_writer.add_summary(summary, i) # save to train model
         if i % int(data.train.num_examples / batch_size) == 0:
-            val_loss = session.run(cost, feed_dict=feed_dict_val)
+            summary, val_loss = session.run([merged, cost], feed_dict=feed_dict_val)
+            train_writer.add_summary(summary, i)  # save to train model
             epoch = int(i / int(data.train.num_examples / batch_size))
 
             should_end = show_progress(epoch, feed_dict_tr, feed_dict_val, val_loss)
             saver.save(session,
-                       '/home/igor/university/machine-learning/cv-tricks.com/Tensorflow-tutorials/tutorial-2-image-classifier/modelsdogs-cats-model')
+                       config.model_dir)
             if should_end:
                 break
 

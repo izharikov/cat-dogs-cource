@@ -1,3 +1,4 @@
+import config
 import dataset
 import tensorflow as tf
 import time
@@ -31,9 +32,9 @@ def load_test_dataset():
 
 def load_graph(sess):
     saver = tf.train.import_meta_graph(
-        '/home/igor/university/machine-learning/cv-tricks.com/Tensorflow-tutorials/tutorial-2-image-classifier/models/dogs-cats-model.meta')
+        config.model_dir_path)
 
-    saver.restore(sess, tf.train.latest_checkpoint('./'))
+    saver.restore(sess, tf.train.latest_checkpoint('./models'))
     return tf.get_default_graph()
 
 
@@ -60,11 +61,15 @@ def get_acc(graph, sess, y_pred, feed_dict_tr):
     acc = sess.run(accuracy, feed_dict=feed_dict_tr)
     return acc
 
-data = load_test_dataset()
+def execute():
+    data = load_test_dataset()
 
-sess = tf.Session()
-graph = load_graph(sess)
+    sess =  tf.Session()
+    graph = load_graph(sess)
 
-(y_pred, feed_dict_tr) = test_feed(graph, data)
-acc = get_acc(graph, sess, y_pred, feed_dict_tr)
-print('acc: ', acc)
+    (y_pred, feed_dict_tr) = test_feed(graph, data)
+    acc = get_acc(graph, sess, y_pred, feed_dict_tr)
+    print('acc: ', acc)
+
+if __name__ == "__main__":
+    execute()
